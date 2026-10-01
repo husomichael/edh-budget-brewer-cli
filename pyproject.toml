@@ -1,0 +1,38 @@
+[project]
+name = "edh-budget-brewer-cli"
+version = "0.1.0"
+description = "Command-line MTG Commander deck optimizer: a commander and a budget in, a legal 100-card deck out."
+requires-python = ">=3.13"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "psycopg[binary]>=3.2",
+    "django-environ>=0.12",
+    # macOS python.org builds do not use the system cert store; the Scryfall
+    # sync points OpenSSL at certifi's bundle explicitly.
+    "certifi",
+]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest", "pytest-django", "pytest-cov"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = [".venv", "*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test data tables quote real Oracle card text verbatim. Wrapping those lines
+# makes the expected-role table far harder to scan, and the point of quoting
+# them exactly is that the patterns are pinned against how cards are really
+# worded -- so the data stays on one line per card.
+"cards/tests/test_classification.py" = ["E501"]
+"cards/tests/*" = ["E501"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
+addopts = "--reuse-db -q"
+testpaths = ["cards/tests"]

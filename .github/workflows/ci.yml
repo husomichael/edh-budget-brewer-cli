@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ebb
+          POSTGRES_PASSWORD: ebb
+          POSTGRES_DB: edh_budget_brewer
+        ports:
+          - 5432:5432
+        # Without a health check the first migrate can race the server's
+        # startup and fail with "the database system is starting up".
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SECRET_KEY: ci-only-not-a-real-secret
+      DEBUG: "False"
+      DATABASE_URL: postgres://ebb:ebb@localhost:5432/edh_budget_brewer
+      SCRYFALL_USER_AGENT: edh-budget-brewer-ci/0.1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Check for missing migrations
+        # Editing a model without running makemigrations produces confusing
+        # runtime errors much later. Catch it here instead.
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Test
+        run: pytest --cov=cards --cov-report=term-missing
